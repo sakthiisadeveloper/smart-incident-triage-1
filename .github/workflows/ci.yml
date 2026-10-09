@@ -30,9 +30,10 @@ jobs:
       - name: Build image
         run: docker build -f services/${{ matrix.service }}/Dockerfile -t triage/${{ matrix.service }}:${{ github.sha }} .
       - name: Scan image (fail on HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: triage/${{ matrix.service }}:${{ github.sha }}
+          format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
