@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triage-common"
+version = "0.1.0"
+description = "Shared event contracts and infrastructure helpers for the Smart Incident Triage Platform"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7,<3",
+    "fastapi>=0.110,<1",
+    "sqlalchemy>=2.0.30,<2.1",
+    "pyjwt>=2.8,<3",
+    "aio-pika>=9.4,<10",
+]
+
+[tool.setuptools.packages.find]
+include = ["triage_common*"]

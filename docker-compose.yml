@@ -1,0 +1,107 @@
+name: smart-incident-triage
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "${RABBITMQ_UI_HOST_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  ingestion:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/ingestion/Dockerfile
+    environment:
+      INGESTION_DATABASE_URL: postgresql+psycopg://ingestion_svc:${INGESTION_DB_PASSWORD:-ingestion_pw}@postgres:5432/ingestion
+      INGESTION_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      # API keys default to {"dev-ingest-key": {"client_id": "dev-client", "sources": ["*"]}};
+      # override with INGESTION_API_KEYS in docker-compose.override.yml (see README).
+      INGESTION_DEDUP_WINDOW_SECONDS: ${INGESTION_DEDUP_WINDOW_SECONDS:-60}
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  incident:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/incident/Dockerfile
+    environment:
+      INCIDENT_DATABASE_URL: postgresql+psycopg://incident_svc:${INCIDENT_DB_PASSWORD:-incident_pw}@postgres:5432/incidents
+      INCIDENT_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      INCIDENT_JWT_SECRET: ${OPERATOR_JWT_SECRET:-dev-operator-jwt-secret-change-me-32b}
+      INCIDENT_SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:-dev-service-jwt-secret-change-me-32b}
+      INCIDENT_ENABLE_DEV_TOKEN_ENDPOINT: ${ENABLE_DEV_TOKEN_ENDPOINT:-true}
+      INCIDENT_SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  triage-agent:
+    <<: *service-defaults
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      incident:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: services/triage_agent/Dockerfile
+    environment:
+      AGENT_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      AGENT_INCIDENT_SERVICE_URL: http://incident:8000
+      AGENT_SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:-dev-service-jwt-secret-change-me-32b}
+      AGENT_MODEL_PROVIDER: ${AGENT_MODEL_PROVIDER:-mock}
+      AGENT_MOCK_BEHAVIOUR: ${AGENT_MOCK_BEHAVIOUR:-normal}
+      AGENT_OPENAI_API_KEY: ${AGENT_OPENAI_API_KEY:-}
+      AGENT_OPENAI_MODEL: ${AGENT_OPENAI_MODEL:-gpt-4o-mini}
+      AGENT_AZURE_OPENAI_ENDPOINT: ${AGENT_AZURE_OPENAI_ENDPOINT:-}
+      AGENT_AZURE_OPENAI_DEPLOYMENT: ${AGENT_AZURE_OPENAI_DEPLOYMENT:-}
+      AGENT_AZURE_OPENAI_API_KEY: ${AGENT_AZURE_OPENAI_API_KEY:-}
+    ports:
+      - "8003:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

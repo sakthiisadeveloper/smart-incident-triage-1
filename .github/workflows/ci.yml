@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest
+      - name: Agent golden-set gate
+        run: PYTHONPATH=libs/common:services/triage_agent python services/triage_agent/eval/run_eval.py --min-accuracy 0.8
+
+  build-and-scan:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [ingestion, incident, triage_agent]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f services/${{ matrix.service }}/Dockerfile -t triage/${{ matrix.service }}:${{ github.sha }} .
+      - name: Scan image (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: triage/${{ matrix.service }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      # Deploy (main only): push to Azure Container Registry with OIDC federated credentials,
+      # then `az containerapp update --image ...:${{ github.sha }}` creating a new revision;
+      # traffic shifts after /health/ready passes; rollback = re-activate the previous revision.

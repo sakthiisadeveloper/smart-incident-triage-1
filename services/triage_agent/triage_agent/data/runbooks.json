@@ -1,0 +1,79 @@
+[
+  {
+    "runbook_id": "RB-settlement-03",
+    "title": "Settlement batch fails reaching ledger-db",
+    "apps": ["settlement"],
+    "patterns": ["ledger-db", "settlement", "connection pool"],
+    "steps": [
+      "Check ledger-db connection pool usage and active sessions",
+      "Confirm ledger-db primary is healthy (no failover in progress)",
+      "Re-run the settlement job after the database recovers"
+    ]
+  },
+  {
+    "runbook_id": "RB-db-connectivity-01",
+    "title": "Generic database connectivity",
+    "apps": [],
+    "patterns": ["-db", "database", "jdbc", "sql", "postgres", "connection refused"],
+    "steps": [
+      "Check database server health and failover status",
+      "Check connection pool saturation in the application",
+      "Verify firewall / private endpoint routes from the app subnet"
+    ]
+  },
+  {
+    "runbook_id": "RB-k8s-oom-02",
+    "title": "Pods OOMKilled",
+    "apps": ["orders"],
+    "patterns": ["oomkilled", "out of memory", "memory limit"],
+    "steps": [
+      "Check container memory trend since the last deployment",
+      "Roll back the last release if memory grew after it",
+      "Temporarily raise the memory limit and open a leak investigation"
+    ]
+  },
+  {
+    "runbook_id": "RB-disk-full-01",
+    "title": "Filesystem almost full",
+    "apps": ["reporting"],
+    "patterns": ["disk", "no space", "filesystem"],
+    "steps": [
+      "Identify the largest directories on the volume",
+      "Purge or archive old extracts per retention policy",
+      "Expand the volume if growth is expected"
+    ]
+  },
+  {
+    "runbook_id": "RB-cert-expiry-01",
+    "title": "TLS certificate expiry",
+    "apps": ["portal"],
+    "patterns": ["certificate", "x509", "tls", "ssl"],
+    "steps": [
+      "Confirm the certificate expiry date and the endpoints using it",
+      "Renew the certificate in Key Vault",
+      "Rotate the certificate on the gateway and verify the chain"
+    ]
+  },
+  {
+    "runbook_id": "RB-integration-5xx-01",
+    "title": "Upstream integration returning 5xx",
+    "apps": ["crm-integration"],
+    "patterns": ["503", "502", "upstream", "service unavailable", "salesforce"],
+    "steps": [
+      "Check the provider status page",
+      "Confirm the integration is retrying with back-off and not dropping records",
+      "Escalate to the vendor if the outage exceeds the SLA"
+    ]
+  },
+  {
+    "runbook_id": "RB-auth-jwks-01",
+    "title": "Token signature validation failures",
+    "apps": ["hr"],
+    "patterns": ["signature", "jwks", "401", "unauthorized", "token expired"],
+    "steps": [
+      "Check identity provider signing-key rollover events",
+      "Refresh the JWKS cache on gateways and services",
+      "Verify service principal secrets have not expired"
+    ]
+  }
+]

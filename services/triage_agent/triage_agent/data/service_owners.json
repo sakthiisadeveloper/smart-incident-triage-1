@@ -1,0 +1,8 @@
+{
+  "settlement": {"team": "Payments Platform", "on_call": "payments-oncall@example.com", "channel": "#payments-ops"},
+  "orders": {"team": "Commerce Core", "on_call": "commerce-oncall@example.com", "channel": "#commerce-ops"},
+  "reporting": {"team": "Data Engineering", "on_call": "data-oncall@example.com", "channel": "#data-ops"},
+  "portal": {"team": "Digital Channels", "on_call": "digital-oncall@example.com", "channel": "#digital-ops"},
+  "crm-integration": {"team": "Integration Services", "on_call": "integration-oncall@example.com", "channel": "#integration-ops"},
+  "hr": {"team": "Enterprise Apps", "on_call": "entapps-oncall@example.com", "channel": "#entapps-ops"}
+}
